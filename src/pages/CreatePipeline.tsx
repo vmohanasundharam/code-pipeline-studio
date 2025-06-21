@@ -10,28 +10,47 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Plus, ArrowLeft, Settings, Trash2, Play } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
+interface PipelineStep {
+  id: number;
+  functionName: string;
+  argumentMappings: Record<string, string>;
+  returnMapping: string;
+}
+
+interface MockFunction {
+  name: string;
+  arguments: string[];
+  returnEnabled: boolean;
+  returnType?: string;
+}
+
+interface MockVariable {
+  name: string;
+  type: string;
+}
+
 const CreatePipeline = () => {
   const navigate = useNavigate();
   const [pipelineName, setPipelineName] = useState('');
   const [pipelineDescription, setPipelineDescription] = useState('');
-  const [steps, setSteps] = useState([]);
+  const [steps, setSteps] = useState<PipelineStep[]>([]);
   const [isStepDialogOpen, setIsStepDialogOpen] = useState(false);
 
   // Mock data
-  const mockFunctions = [
+  const mockFunctions: MockFunction[] = [
     { name: 'calculateTotal', arguments: ['price', 'quantity', 'tax'], returnEnabled: true, returnType: 'Number' },
     { name: 'validateEmail', arguments: ['email'], returnEnabled: true, returnType: 'String' },
     { name: 'logMessage', arguments: ['message', 'level'], returnEnabled: false }
   ];
 
-  const mockVariables = [
+  const mockVariables: MockVariable[] = [
     { name: 'currentShift', type: 'String' },
     { name: 'machineId', type: 'String' },
     { name: 'qualityThreshold', type: 'Number' },
     { name: 'conversionFactor', type: 'Number' }
   ];
 
-  const [currentStep, setCurrentStep] = useState({
+  const [currentStep, setCurrentStep] = useState<Omit<PipelineStep, 'id'>>({
     functionName: '',
     argumentMappings: {},
     returnMapping: ''
@@ -49,7 +68,7 @@ const CreatePipeline = () => {
     }
   };
 
-  const handleDeleteStep = (stepId) => {
+  const handleDeleteStep = (stepId: number) => {
     setSteps(steps.filter(step => step.id !== stepId));
   };
 
