@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,43 +10,27 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Plus, ArrowLeft, Edit, Trash2, Code } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { storage } from "@/utils/storage";
 
 interface JSFunction {
   id: number;
   name: string;
   description: string;
-  arguments: { name: string; type: string; }[];
+  arguments: { name: string; type: string; dataType: string; }[];
   returnEnabled: boolean;
   returnType?: string;
+  code: string;
 }
 
 const JSModules = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [functions, setFunctions] = useState<JSFunction[]>([
-    {
-      id: 1,
-      name: 'calculateTotal',
-      description: 'Calculates the total amount including price, quantity, and tax',
-      arguments: [
-        { name: 'price', type: 'Number' },
-        { name: 'quantity', type: 'Number' },
-        { name: 'tax', type: 'Number' }
-      ],
-      returnEnabled: true,
-      returnType: 'Number'
-    },
-    {
-      id: 2,
-      name: 'validateEmail',
-      description: 'Validates if the provided email address is in correct format',
-      arguments: [
-        { name: 'email', type: 'String' }
-      ],
-      returnEnabled: true,
-      returnType: 'String'
-    }
-  ]);
+  const [functions, setFunctions] = useState<JSFunction[]>([]);
+
+  useEffect(() => {
+    const storedFunctions = storage.getJSFunctions();
+    setFunctions(storedFunctions);
+  }, []);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -56,10 +40,11 @@ const JSModules = () => {
     description: '',
     arguments: [],
     returnEnabled: false,
-    returnType: undefined
+    returnType: undefined,
+    code: ''
   });
 
-  const [newArgument, setNewArgument] = useState({ name: '', type: 'String' });
+  const [newArgument, setNewArgument] = useState({ name: '', type: 'String', dataType: 'String' });
 
   const dataTypes = ['String', 'Number', 'Map', 'List'];
 
@@ -82,25 +67,37 @@ const JSModules = () => {
       return;
     }
 
+    if (!currentFunction.code.trim()) {
+      toast({
+        title: "Error", 
+        description: "Function code is required",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    let updatedFunctions;
     if (isEditing && editingId !== null) {
-      setFunctions(functions.map(func => 
+      updatedFunctions = functions.map(func => 
         func.id === editingId 
           ? { ...currentFunction, id: editingId }
           : func
-      ));
+      );
       toast({
         title: "Success",
         description: "Function updated successfully"
       });
     } else {
       const newFunction = { ...currentFunction, id: Date.now() };
-      setFunctions([...functions, newFunction]);
+      updatedFunctions = [...functions, newFunction];
       toast({
         title: "Success",
         description: "Function created successfully"
       });
     }
 
+    setFunctions(updatedFunctions);
+    storage.saveJSFunctions(updatedFunctions);
     resetForm();
   };
 
@@ -110,7 +107,8 @@ const JSModules = () => {
       description: func.description,
       arguments: func.arguments,
       returnEnabled: func.returnEnabled,
-      returnType: func.returnType
+      returnType: func.returnType,
+      code: func.code || ''
     });
     setIsEditing(true);
     setEditingId(func.id);
@@ -118,7 +116,9 @@ const JSModules = () => {
   };
 
   const handleDeleteFunction = (id: number) => {
-    setFunctions(functions.filter(func => func.id !== id));
+    const updatedFunctions = functions.filter(func => func.id !== id);
+    setFunctions(updatedFunctions);
+    storage.saveJSFunctions(updatedFunctions);
     toast({
       title: "Success",
       description: "Function deleted successfully"
@@ -131,9 +131,10 @@ const JSModules = () => {
       description: '',
       arguments: [],
       returnEnabled: false,
-      returnType: undefined
+      returnType: undefined,
+      code: ''
     });
-    setNewArgument({ name: '', type: 'String' });
+    setNewArgument({ name: '', type: 'String', dataType: 'String' });
     setIsEditing(false);
     setEditingId(null);
     setIsDialogOpen(false);
@@ -146,7 +147,7 @@ const JSModules = () => {
       ...currentFunction,
       arguments: [...currentFunction.arguments, { ...newArgument }]
     });
-    setNewArgument({ name: '', type: 'String' });
+    setNewArgument({ name: '', type: 'String', dataType: 'String' });
   };
 
   const removeArgument = (index: number) => {
@@ -256,7 +257,7 @@ const JSModules = () => {
                         <div className="mt-1 space-y-1">
                           {func.arguments.map((arg, index) => (
                             <div key={index} className="text-gray-600">
-                              {arg.name} ({arg.type})
+                              {arg.name} ({arg.dataType || arg.type})
                             </div>
                           ))}
                         </div>
@@ -279,7 +280,7 @@ const JSModules = () => {
 
         {/* Add/Edit Function Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{isEditing ? 'Edit Function' : 'Add New Function'}</DialogTitle>
             </DialogHeader>
@@ -310,7 +311,7 @@ const JSModules = () => {
                 <div className="space-y-2 mt-2">
                   {currentFunction.arguments.map((arg, index) => (
                     <div key={index} className="flex items-center space-x-2 p-2 bg-gray-50 rounded">
-                      <span className="flex-1">{arg.name} ({arg.type})</span>
+                      <span className="flex-1">{arg.name} ({arg.dataType || arg.type})</span>
                       <Button 
                         size="sm" 
                         variant="outline"
@@ -329,8 +330,8 @@ const JSModules = () => {
                       className="flex-1"
                     />
                     <Select 
-                      value={newArgument.type} 
-                      onValueChange={(value) => setNewArgument({...newArgument, type: value})}
+                      value={newArgument.dataType} 
+                      onValueChange={(value) => setNewArgument({...newArgument, dataType: value, type: value})}
                     >
                       <SelectTrigger className="w-32">
                         <SelectValue />
@@ -380,6 +381,18 @@ const JSModules = () => {
                   </Select>
                 </div>
               )}
+
+              <div>
+                <Label htmlFor="functionCode">Function Code</Label>
+                <Textarea
+                  id="functionCode"
+                  value={currentFunction.code}
+                  onChange={(e) => setCurrentFunction({...currentFunction, code: e.target.value})}
+                  placeholder="function functionName(args) {&#10;  // Your code here&#10;  return result;&#10;}"
+                  rows={10}
+                  className="font-mono text-sm"
+                />
+              </div>
 
               <div className="flex space-x-2">
                 <Button variant="outline" onClick={resetForm} className="flex-1">

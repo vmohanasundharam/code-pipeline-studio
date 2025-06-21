@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,8 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, ArrowLeft, Settings, Trash2, Save, Play } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { storage } from "@/utils/storage";
 
 interface PipelineStep {
   id: number;
@@ -21,7 +22,7 @@ interface PipelineStep {
 interface MockFunction {
   name: string;
   description: string;
-  arguments: { name: string; type: string; }[];
+  arguments: { name: string; type: string; dataType: string; }[];
   returnEnabled: boolean;
   returnType?: string;
 }
@@ -34,43 +35,36 @@ interface MockVariable {
 const CreatePipeline = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get('edit');
+  
   const [pipelineName, setPipelineName] = useState('');
   const [pipelineDescription, setPipelineDescription] = useState('');
   const [steps, setSteps] = useState<PipelineStep[]>([]);
   const [isStepDialogOpen, setIsStepDialogOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
-  // Mock data with descriptions
-  const mockFunctions: MockFunction[] = [
-    { 
-      name: 'calculateTotal', 
-      description: 'Calculates the total amount including price, quantity, and tax',
-      arguments: [
-        { name: 'price', type: 'Number' },
-        { name: 'quantity', type: 'Number' },
-        { name: 'tax', type: 'Number' }
-      ], 
-      returnEnabled: true, 
-      returnType: 'Number' 
-    },
-    { 
-      name: 'validateEmail', 
-      description: 'Validates if the provided email address is in correct format',
-      arguments: [
-        { name: 'email', type: 'String' }
-      ], 
-      returnEnabled: true, 
-      returnType: 'String' 
-    },
-    { 
-      name: 'logMessage', 
-      description: 'Logs a message with specified level to the system',
-      arguments: [
-        { name: 'message', type: 'String' },
-        { name: 'level', type: 'String' }
-      ], 
-      returnEnabled: false 
+  // Load JS functions from storage
+  const [mockFunctions, setMockFunctions] = useState<MockFunction[]>([]);
+
+  useEffect(() => {
+    const jsFunctions = storage.getJSFunctions();
+    setMockFunctions(jsFunctions);
+  }, []);
+
+  // Load pipeline for editing
+  useEffect(() => {
+    if (editId) {
+      const pipelines = storage.getPipelines();
+      const pipelineToEdit = pipelines.find(p => p.id === parseInt(editId));
+      if (pipelineToEdit) {
+        setPipelineName(pipelineToEdit.name);
+        setPipelineDescription(pipelineToEdit.description);
+        setSteps(pipelineToEdit.steps || []);
+        setIsEditing(true);
+      }
     }
-  ];
+  }, [editId]);
 
   const mockVariables: MockVariable[] = [
     { name: 'currentShift', type: 'String' },
@@ -120,19 +114,30 @@ const CreatePipeline = () => {
       return;
     }
 
-    // Here you would normally save to a database
-    console.log('Saving pipeline:', {
+    const pipelines = storage.getPipelines();
+    const pipelineData = {
+      id: isEditing ? parseInt(editId!) : Date.now(),
       name: pipelineName,
       description: pipelineDescription,
-      steps: steps
-    });
+      steps: steps,
+      status: 'active',
+      lastRun: new Date().toISOString().split('T')[0]
+    };
+
+    if (isEditing) {
+      const updatedPipelines = pipelines.map(p => 
+        p.id === parseInt(editId!) ? pipelineData : p
+      );
+      storage.savePipelines(updatedPipelines);
+    } else {
+      storage.savePipelines([...pipelines, pipelineData]);
+    }
 
     toast({
       title: "Success",
-      description: "Pipeline saved successfully"
+      description: `Pipeline ${isEditing ? 'updated' : 'created'} successfully`
     });
 
-    // Navigate back to home page
     navigate('/');
   };
 
@@ -176,7 +181,9 @@ const CreatePipeline = () => {
                 <ArrowLeft className="h-4 w-4" />
                 <span>Back</span>
               </Button>
-              <h1 className="text-2xl font-bold text-gray-900">Create Pipeline</h1>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {isEditing ? 'Edit Pipeline' : 'Create Pipeline'}
+              </h1>
             </div>
             <div className="flex items-center space-x-2">
               <Button 
@@ -335,7 +342,7 @@ const CreatePipeline = () => {
                     {selectedFunction.arguments.map((arg) => (
                       <div key={arg.name} className="flex items-center space-x-3">
                         <span className="w-32 text-sm font-medium text-gray-700">
-                          {arg.name} ({arg.type}):
+                          {arg.name} ({arg.dataType || arg.type}):
                         </span>
                         <Select 
                           value={currentStep.argumentMappings[arg.name] || ''} 
@@ -350,7 +357,7 @@ const CreatePipeline = () => {
                             <SelectValue placeholder="Select variable" />
                           </SelectTrigger>
                           <SelectContent className="bg-white">
-                            {mockVariables.filter(v => v.type === arg.type).map((variable) => (
+                            {mockVariables.filter(v => v.type === (arg.dataType || arg.type)).map((variable) => (
                               <SelectItem key={variable.name} value={variable.name}>
                                 {variable.name} ({variable.type})
                               </SelectItem>

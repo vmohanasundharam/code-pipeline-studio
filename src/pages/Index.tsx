@@ -1,35 +1,22 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Settings, Code, Zap, Edit } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { storage } from "@/utils/storage";
 
 const Index = () => {
   const navigate = useNavigate();
+  const [pipelines, setPipelines] = useState<any[]>([]);
 
-  const mockPipelines = [
-    {
-      id: 1,
-      name: "Data Processing Pipeline",
-      description: "Processes customer data and generates reports",
-      steps: 4,
-      lastRun: "2024-01-15",
-      status: "active"
-    },
-    {
-      id: 2,
-      name: "Email Notification Pipeline",
-      description: "Sends automated email notifications",
-      steps: 2,
-      lastRun: "2024-01-14",
-      status: "inactive"
-    }
-  ];
+  useEffect(() => {
+    const storedPipelines = storage.getPipelines();
+    setPipelines(storedPipelines);
+  }, []);
 
   const handleEditPipeline = (pipelineId: number) => {
-    // Navigate to edit pipeline page (for now, navigate to create pipeline)
-    navigate('/create-pipeline');
+    navigate(`/create-pipeline?edit=${pipelineId}`);
   };
 
   const handleRunPipeline = (pipelineId: number) => {
@@ -85,7 +72,7 @@ const Index = () => {
           <p className="text-gray-600">Manage and monitor your automated workflows</p>
         </div>
 
-        {mockPipelines.length === 0 ? (
+        {pipelines.length === 0 ? (
           <Card className="text-center py-12">
             <CardContent>
               <div className="flex flex-col items-center space-y-4">
@@ -104,7 +91,7 @@ const Index = () => {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {mockPipelines.map((pipeline) => (
+            {pipelines.map((pipeline) => (
               <Card 
                 key={pipeline.id} 
                 className="hover:shadow-lg transition-shadow cursor-pointer"
@@ -118,7 +105,7 @@ const Index = () => {
                         ? 'bg-green-100 text-green-800' 
                         : 'bg-gray-100 text-gray-800'
                     }`}>
-                      {pipeline.status}
+                      {pipeline.status || 'inactive'}
                     </div>
                   </div>
                 </CardHeader>
@@ -127,11 +114,11 @@ const Index = () => {
                   <div className="space-y-2 text-sm text-gray-500">
                     <div className="flex justify-between">
                       <span>Steps:</span>
-                      <span className="font-medium">{pipeline.steps}</span>
+                      <span className="font-medium">{pipeline.steps?.length || 0}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Last Run:</span>
-                      <span className="font-medium">{pipeline.lastRun}</span>
+                      <span className="font-medium">{pipeline.lastRun || 'Never'}</span>
                     </div>
                   </div>
                   <div className="flex space-x-2 mt-4">
