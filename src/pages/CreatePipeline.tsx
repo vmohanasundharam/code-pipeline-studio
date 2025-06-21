@@ -19,7 +19,7 @@ interface PipelineStep {
 
 interface MockFunction {
   name: string;
-  arguments: string[];
+  arguments: { name: string; type: string; }[];
   returnEnabled: boolean;
   returnType?: string;
 }
@@ -38,9 +38,32 @@ const CreatePipeline = () => {
 
   // Mock data
   const mockFunctions: MockFunction[] = [
-    { name: 'calculateTotal', arguments: ['price', 'quantity', 'tax'], returnEnabled: true, returnType: 'Number' },
-    { name: 'validateEmail', arguments: ['email'], returnEnabled: true, returnType: 'String' },
-    { name: 'logMessage', arguments: ['message', 'level'], returnEnabled: false }
+    { 
+      name: 'calculateTotal', 
+      arguments: [
+        { name: 'price', type: 'Number' },
+        { name: 'quantity', type: 'Number' },
+        { name: 'tax', type: 'Number' }
+      ], 
+      returnEnabled: true, 
+      returnType: 'Number' 
+    },
+    { 
+      name: 'validateEmail', 
+      arguments: [
+        { name: 'email', type: 'String' }
+      ], 
+      returnEnabled: true, 
+      returnType: 'String' 
+    },
+    { 
+      name: 'logMessage', 
+      arguments: [
+        { name: 'message', type: 'String' },
+        { name: 'level', type: 'String' }
+      ], 
+      returnEnabled: false 
+    }
   ];
 
   const mockVariables: MockVariable[] = [
@@ -223,14 +246,16 @@ const CreatePipeline = () => {
                   <Label>Map Arguments to Variables</Label>
                   <div className="space-y-3 mt-2">
                     {selectedFunction.arguments.map((arg) => (
-                      <div key={arg} className="flex items-center space-x-3">
-                        <span className="w-24 text-sm font-medium text-gray-700">{arg}:</span>
+                      <div key={arg.name} className="flex items-center space-x-3">
+                        <span className="w-32 text-sm font-medium text-gray-700">
+                          {arg.name} ({arg.type}):
+                        </span>
                         <Select 
-                          value={currentStep.argumentMappings[arg] || ''} 
+                          value={currentStep.argumentMappings[arg.name] || ''} 
                           onValueChange={(value) => 
                             setCurrentStep({
                               ...currentStep, 
-                              argumentMappings: {...currentStep.argumentMappings, [arg]: value}
+                              argumentMappings: {...currentStep.argumentMappings, [arg.name]: value}
                             })
                           }
                         >
@@ -238,7 +263,7 @@ const CreatePipeline = () => {
                             <SelectValue placeholder="Select variable" />
                           </SelectTrigger>
                           <SelectContent className="bg-white">
-                            {mockVariables.map((variable) => (
+                            {mockVariables.filter(v => v.type === arg.type).map((variable) => (
                               <SelectItem key={variable.name} value={variable.name}>
                                 {variable.name} ({variable.type})
                               </SelectItem>

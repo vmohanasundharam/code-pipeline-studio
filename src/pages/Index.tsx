@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Settings, Code, Zap } from "lucide-react";
+import { Plus, Settings, Code, Zap, Edit } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Index = () => {
@@ -26,6 +26,16 @@ const Index = () => {
       status: "inactive"
     }
   ];
+
+  const handleEditPipeline = (pipelineId: number) => {
+    // Navigate to edit pipeline page (for now, navigate to create pipeline)
+    navigate('/create-pipeline');
+  };
+
+  const handleRunPipeline = (pipelineId: number) => {
+    console.log('Running pipeline:', pipelineId);
+    // Add run pipeline logic here
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -95,7 +105,11 @@ const Index = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {mockPipelines.map((pipeline) => (
-              <Card key={pipeline.id} className="hover:shadow-lg transition-shadow cursor-pointer">
+              <Card 
+                key={pipeline.id} 
+                className="hover:shadow-lg transition-shadow cursor-pointer"
+                onClick={() => handleEditPipeline(pipeline.id)}
+              >
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">{pipeline.name}</CardTitle>
@@ -121,10 +135,26 @@ const Index = () => {
                     </div>
                   </div>
                   <div className="flex space-x-2 mt-4">
-                    <Button size="sm" variant="outline" className="flex-1">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditPipeline(pipeline.id);
+                      }}
+                    >
+                      <Edit className="h-4 w-4 mr-1" />
                       Edit
                     </Button>
-                    <Button size="sm" className="flex-1">
+                    <Button 
+                      size="sm" 
+                      className="flex-1"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRunPipeline(pipeline.id);
+                      }}
+                    >
                       Run
                     </Button>
                   </div>

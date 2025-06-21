@@ -8,61 +8,251 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { Plus, ArrowLeft, Edit, Trash2, Code } from "lucide-react";
+import { Plus, ArrowLeft, Edit, Trash2, Code, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+
+interface FunctionArgument {
+  name: string;
+  type: string;
+}
+
+interface JSFunction {
+  name: string;
+  arguments: FunctionArgument[];
+  returnEnabled: boolean;
+  returnType: string;
+  code: string;
+}
 
 const JSModules = () => {
   const navigate = useNavigate();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+
   const [newFunction, setNewFunction] = useState({
     name: '',
-    arguments: '',
+    arguments: [] as FunctionArgument[],
     returnEnabled: false,
     returnType: 'String',
     code: ''
   });
 
-  const [functions, setFunctions] = useState([
+  const [functions, setFunctions] = useState<JSFunction[]>([
     {
       name: 'calculateTotal',
-      arguments: 'price, quantity, tax',
+      arguments: [
+        { name: 'price', type: 'Number' },
+        { name: 'quantity', type: 'Number' },
+        { name: 'tax', type: 'Number' }
+      ],
       returnEnabled: true,
       returnType: 'Number',
       code: 'return price * quantity * (1 + tax);'
     },
     {
       name: 'validateEmail',
-      arguments: 'email',
+      arguments: [
+        { name: 'email', type: 'String' }
+      ],
       returnEnabled: true,
       returnType: 'String',
       code: 'const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\nreturn emailRegex.test(email) ? "valid" : "invalid";'
     },
     {
       name: 'logMessage',
-      arguments: 'message, level',
+      arguments: [
+        { name: 'message', type: 'String' },
+        { name: 'level', type: 'String' }
+      ],
       returnEnabled: false,
       returnType: 'String',
       code: 'console.log(`[${level}] ${message}`);'
     }
   ]);
 
+  const addArgument = () => {
+    setNewFunction({
+      ...newFunction,
+      arguments: [...newFunction.arguments, { name: '', type: 'String' }]
+    });
+  };
+
+  const removeArgument = (index: number) => {
+    setNewFunction({
+      ...newFunction,
+      arguments: newFunction.arguments.filter((_, i) => i !== index)
+    });
+  };
+
+  const updateArgument = (index: number, field: 'name' | 'type', value: string) => {
+    const updatedArgs = [...newFunction.arguments];
+    updatedArgs[index] = { ...updatedArgs[index], [field]: value };
+    setNewFunction({ ...newFunction, arguments: updatedArgs });
+  };
+
   const handleAddFunction = () => {
     if (newFunction.name && newFunction.code) {
       setFunctions([...functions, { ...newFunction }]);
-      setNewFunction({
-        name: '',
-        arguments: '',
-        returnEnabled: false,
-        returnType: 'String',
-        code: ''
-      });
+      resetForm();
       setIsAddDialogOpen(false);
+    }
+  };
+
+  const handleEditFunction = (index: number) => {
+    const func = functions[index];
+    setNewFunction({ ...func });
+    setEditingIndex(index);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateFunction = () => {
+    if (editingIndex !== null && newFunction.name && newFunction.code) {
+      const updatedFunctions = [...functions];
+      updatedFunctions[editingIndex] = { ...newFunction };
+      setFunctions(updatedFunctions);
+      resetForm();
+      setIsEditDialogOpen(false);
+      setEditingIndex(null);
     }
   };
 
   const handleDeleteFunction = (index: number) => {
     setFunctions(functions.filter((_, i) => i !== index));
   };
+
+  const resetForm = () => {
+    setNewFunction({
+      name: '',
+      arguments: [],
+      returnEnabled: false,
+      returnType: 'String',
+      code: ''
+    });
+  };
+
+  const renderFunctionDialog = (isEdit: boolean) => (
+    <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle>{isEdit ? 'Edit Function' : 'Add New Function'}</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-4">
+        <div>
+          <Label htmlFor="functionName">Function Name</Label>
+          <Input
+            id="functionName"
+            value={newFunction.name}
+            onChange={(e) => setNewFunction({...newFunction, name: e.target.value})}
+            placeholder="e.g., calculateTotal"
+          />
+        </div>
+        
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <Label>Arguments</Label>
+            <Button type="button" size="sm" onClick={addArgument} className="flex items-center space-x-1">
+              <Plus className="h-4 w-4" />
+              <span>Add Argument</span>
+            </Button>
+          </div>
+          {newFunction.arguments.map((arg, index) => (
+            <div key={index} className="flex items-center space-x-2 mb-2">
+              <Input
+                placeholder="Argument name"
+                value={arg.name}
+                onChange={(e) => updateArgument(index, 'name', e.target.value)}
+                className="flex-1"
+              />
+              <Select value={arg.type} onValueChange={(value) => updateArgument(index, 'type', value)}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white">
+                  <SelectItem value="String">String</SelectItem>
+                  <SelectItem value="Number">Number</SelectItem>
+                  <SelectItem value="Map">Map</SelectItem>
+                  <SelectItem value="List">List</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => removeArgument(index)}
+                className="text-red-600 hover:text-red-700"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <Switch
+            checked={newFunction.returnEnabled}
+            onCheckedChange={(checked) => setNewFunction({...newFunction, returnEnabled: checked})}
+          />
+          <Label>Enable Return Type</Label>
+        </div>
+
+        {newFunction.returnEnabled && (
+          <div>
+            <Label htmlFor="returnType">Return Type</Label>
+            <Select 
+              value={newFunction.returnType} 
+              onValueChange={(value) => setNewFunction({...newFunction, returnType: value})}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-white">
+                <SelectItem value="String">String</SelectItem>
+                <SelectItem value="Number">Number</SelectItem>
+                <SelectItem value="Map">Map</SelectItem>
+                <SelectItem value="List">List</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        <div>
+          <Label htmlFor="code">JavaScript Code</Label>
+          <Textarea
+            id="code"
+            value={newFunction.code}
+            onChange={(e) => setNewFunction({...newFunction, code: e.target.value})}
+            placeholder="Enter your JavaScript code here..."
+            rows={6}
+            className="font-mono text-sm"
+          />
+        </div>
+
+        <div className="flex space-x-2">
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              if (isEdit) {
+                setIsEditDialogOpen(false);
+                setEditingIndex(null);
+              } else {
+                setIsAddDialogOpen(false);
+              }
+              resetForm();
+            }} 
+            className="flex-1"
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={isEdit ? handleUpdateFunction : handleAddFunction} 
+            className="flex-1"
+          >
+            {isEdit ? 'Update Function' : 'Add Function'}
+          </Button>
+        </div>
+      </div>
+    </DialogContent>
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -89,6 +279,7 @@ const JSModules = () => {
                   <span>Add Function</span>
                 </Button>
               </DialogTrigger>
+              {renderFunctionDialog(false)}
             </Dialog>
           </div>
         </div>
@@ -105,7 +296,11 @@ const JSModules = () => {
                     <span>{func.name}</span>
                   </CardTitle>
                   <div className="flex space-x-2">
-                    <Button size="sm" variant="outline">
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => handleEditFunction(index)}
+                    >
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button 
@@ -123,9 +318,17 @@ const JSModules = () => {
                 <div className="space-y-4">
                   <div>
                     <Label className="text-sm font-medium text-gray-700">Arguments</Label>
-                    <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded mt-1">
-                      {func.arguments || 'No arguments'}
-                    </p>
+                    <div className="mt-1 space-y-1">
+                      {func.arguments.length > 0 ? (
+                        func.arguments.map((arg, argIndex) => (
+                          <div key={argIndex} className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                            {arg.name} ({arg.type})
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">No arguments</p>
+                      )}
+                    </div>
                   </div>
                   
                   <div>
@@ -142,96 +345,15 @@ const JSModules = () => {
                       )}
                     </div>
                   </div>
-
-                  <div>
-                    <Label className="text-sm font-medium text-gray-700">Code Preview</Label>
-                    <pre className="text-xs bg-gray-900 text-green-400 p-3 rounded mt-1 overflow-x-auto">
-                      {func.code.length > 80 ? func.code.substring(0, 80) + '...' : func.code}
-                    </pre>
-                  </div>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
 
-        {/* Add Function Dialog */}
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Add New Function</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="functionName">Function Name</Label>
-                <Input
-                  id="functionName"
-                  value={newFunction.name}
-                  onChange={(e) => setNewFunction({...newFunction, name: e.target.value})}
-                  placeholder="e.g., calculateTotal"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="arguments">Arguments</Label>
-                <Input
-                  id="arguments"
-                  value={newFunction.arguments}
-                  onChange={(e) => setNewFunction({...newFunction, arguments: e.target.value})}
-                  placeholder="e.g., price, quantity, tax"
-                />
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Switch
-                  checked={newFunction.returnEnabled}
-                  onCheckedChange={(checked) => setNewFunction({...newFunction, returnEnabled: checked})}
-                />
-                <Label>Enable Return Type</Label>
-              </div>
-
-              {newFunction.returnEnabled && (
-                <div>
-                  <Label htmlFor="returnType">Return Type</Label>
-                  <Select 
-                    value={newFunction.returnType} 
-                    onValueChange={(value) => setNewFunction({...newFunction, returnType: value})}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white">
-                      <SelectItem value="String">String</SelectItem>
-                      <SelectItem value="Number">Number</SelectItem>
-                      <SelectItem value="Map">Map</SelectItem>
-                      <SelectItem value="List">List</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              <div>
-                <Label htmlFor="code">JavaScript Code</Label>
-                <Textarea
-                  id="code"
-                  value={newFunction.code}
-                  onChange={(e) => setNewFunction({...newFunction, code: e.target.value})}
-                  placeholder="Enter your JavaScript code here..."
-                  rows={6}
-                  className="font-mono text-sm"
-                />
-              </div>
-
-              <div className="flex space-x-2">
-                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} className="flex-1">
-                  Cancel
-                </Button>
-                <Button onClick={handleAddFunction} className="flex-1">
-                  Add Function
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
+        {/* Edit Function Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          {renderFunctionDialog(true)}
         </Dialog>
       </div>
     </div>
