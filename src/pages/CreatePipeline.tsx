@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, ArrowLeft, Settings, Trash2, Play } from "lucide-react";
+import { Plus, ArrowLeft, Settings, Trash2, Save, Play } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 interface PipelineStep {
   id: number;
@@ -19,6 +20,7 @@ interface PipelineStep {
 
 interface MockFunction {
   name: string;
+  description: string;
   arguments: { name: string; type: string; }[];
   returnEnabled: boolean;
   returnType?: string;
@@ -31,15 +33,17 @@ interface MockVariable {
 
 const CreatePipeline = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [pipelineName, setPipelineName] = useState('');
   const [pipelineDescription, setPipelineDescription] = useState('');
   const [steps, setSteps] = useState<PipelineStep[]>([]);
   const [isStepDialogOpen, setIsStepDialogOpen] = useState(false);
 
-  // Mock data
+  // Mock data with descriptions
   const mockFunctions: MockFunction[] = [
     { 
       name: 'calculateTotal', 
+      description: 'Calculates the total amount including price, quantity, and tax',
       arguments: [
         { name: 'price', type: 'Number' },
         { name: 'quantity', type: 'Number' },
@@ -50,6 +54,7 @@ const CreatePipeline = () => {
     },
     { 
       name: 'validateEmail', 
+      description: 'Validates if the provided email address is in correct format',
       arguments: [
         { name: 'email', type: 'String' }
       ], 
@@ -58,6 +63,7 @@ const CreatePipeline = () => {
     },
     { 
       name: 'logMessage', 
+      description: 'Logs a message with specified level to the system',
       arguments: [
         { name: 'message', type: 'String' },
         { name: 'level', type: 'String' }
@@ -95,6 +101,63 @@ const CreatePipeline = () => {
     setSteps(steps.filter(step => step.id !== stepId));
   };
 
+  const handleSave = () => {
+    if (!pipelineName.trim()) {
+      toast({
+        title: "Error",
+        description: "Pipeline name is required",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (steps.length === 0) {
+      toast({
+        title: "Error", 
+        description: "At least one step is required",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Here you would normally save to a database
+    console.log('Saving pipeline:', {
+      name: pipelineName,
+      description: pipelineDescription,
+      steps: steps
+    });
+
+    toast({
+      title: "Success",
+      description: "Pipeline saved successfully"
+    });
+
+    // Navigate back to home page
+    navigate('/');
+  };
+
+  const handleTest = () => {
+    if (!pipelineName.trim() || steps.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please save the pipeline first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    console.log('Testing pipeline:', {
+      name: pipelineName,
+      description: pipelineDescription,
+      steps: steps
+    });
+
+    toast({
+      title: "Test Started",
+      description: "Pipeline test execution started"
+    });
+  };
+
   const selectedFunction = mockFunctions.find(f => f.name === currentStep.functionName);
 
   return (
@@ -115,10 +178,23 @@ const CreatePipeline = () => {
               </Button>
               <h1 className="text-2xl font-bold text-gray-900">Create Pipeline</h1>
             </div>
-            <Button className="flex items-center space-x-2">
-              <Play className="h-4 w-4" />
-              <span>Save & Test</span>
-            </Button>
+            <div className="flex items-center space-x-2">
+              <Button 
+                variant="outline"
+                onClick={handleSave}
+                className="flex items-center space-x-2"
+              >
+                <Save className="h-4 w-4" />
+                <span>Save</span>
+              </Button>
+              <Button 
+                onClick={handleTest}
+                className="flex items-center space-x-2"
+              >
+                <Play className="h-4 w-4" />
+                <span>Test</span>
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -175,41 +251,49 @@ const CreatePipeline = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {steps.map((step, index) => (
-                  <div key={step.id} className="bg-gray-50 p-4 rounded-lg border">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-semibold text-gray-900">
-                        Step {index + 1}: {step.functionName}
-                      </h4>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => handleDeleteStep(step.id)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="font-medium text-gray-700">Arguments:</span>
-                        <div className="mt-1 space-y-1">
-                          {Object.entries(step.argumentMappings).map(([arg, variable]) => (
-                            <div key={arg} className="text-gray-600">
-                              {arg} → {variable}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      {step.returnMapping && (
+                {steps.map((step, index) => {
+                  const stepFunction = mockFunctions.find(f => f.name === step.functionName);
+                  return (
+                    <div key={step.id} className="bg-gray-50 p-4 rounded-lg border">
+                      <div className="flex items-center justify-between mb-3">
                         <div>
-                          <span className="font-medium text-gray-700">Return:</span>
-                          <div className="mt-1 text-gray-600">{step.returnMapping}</div>
+                          <h4 className="font-semibold text-gray-900">
+                            Step {index + 1}: {step.functionName}
+                          </h4>
+                          {stepFunction?.description && (
+                            <p className="text-sm text-gray-600 mt-1">{stepFunction.description}</p>
+                          )}
                         </div>
-                      )}
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleDeleteStep(step.id)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="font-medium text-gray-700">Arguments:</span>
+                          <div className="mt-1 space-y-1">
+                            {Object.entries(step.argumentMappings).map(([arg, variable]) => (
+                              <div key={arg} className="text-gray-600">
+                                {arg} → {variable}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        {step.returnMapping && (
+                          <div>
+                            <span className="font-medium text-gray-700">Return:</span>
+                            <div className="mt-1 text-gray-600">{step.returnMapping}</div>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
@@ -234,7 +318,10 @@ const CreatePipeline = () => {
                   <SelectContent className="bg-white">
                     {mockFunctions.map((func) => (
                       <SelectItem key={func.name} value={func.name}>
-                        {func.name}
+                        <div>
+                          <div className="font-medium">{func.name}</div>
+                          <div className="text-sm text-gray-500">{func.description}</div>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
