@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, ArrowLeft, Settings, Trash2, Save, Play, Edit } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -294,7 +295,7 @@ const CreatePipeline = () => {
               <CardTitle>Pipeline Variables</CardTitle>
               <Dialog open={isVariableDialogOpen} onOpenChange={setIsVariableDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="outline" className="flex items-center space-x-2">
+                  <Button className="flex items-center space-x-2">
                     <Plus className="h-4 w-4" />
                     <span>Add Variable</span>
                   </Button>
@@ -303,27 +304,46 @@ const CreatePipeline = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {pipelineVariables.map((variable, index) => (
-                <div key={index} className="bg-gray-50 p-3 rounded-lg border flex items-center justify-between">
-                  <div>
-                    <div className="font-medium text-gray-900">{variable.name}</div>
-                    <div className="text-sm text-gray-600">{variable.description}</div>
-                    <div className="text-sm text-gray-500">
-                      Value: {variable.value} | Type: {variable.type}
-                    </div>
-                  </div>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => handleDeleteVariable(index)}
-                    className="text-red-600 hover:text-red-700"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Value</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pipelineVariables.map((variable, index) => (
+                  <TableRow key={index}>
+                    <TableCell className="font-medium">{variable.name}</TableCell>
+                    <TableCell className="text-gray-600">{variable.value}</TableCell>
+                    <TableCell>
+                      <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs">
+                        {variable.type}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-gray-600">{variable.description}</TableCell>
+                    <TableCell>
+                      <div className="flex space-x-2">
+                        <Button size="sm" variant="outline">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleDeleteVariable(index)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
 
