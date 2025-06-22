@@ -221,6 +221,17 @@ const CreatePipeline = () => {
 
   const selectedFunction = mockFunctions.find(f => f.name === currentStep.functionName);
 
+  // Get available variables based on selected devices count
+  const getAvailableVariables = () => {
+    if (selectedDevices.length > 1) {
+      // If multiple devices selected, show only user-defined variables
+      return userVariables;
+    } else {
+      // If one or no devices selected, show both system and user-defined variables
+      return [...systemVariables, ...userVariables];
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       {/* Header */}
@@ -602,34 +613,43 @@ const CreatePipeline = () => {
               {selectedFunction && selectedFunction.arguments.length > 0 && (
                 <div>
                   <Label>Map Arguments to Variables</Label>
+                  {selectedDevices.length > 1 && (
+                    <p className="text-sm text-amber-600 mb-2">
+                      Multiple devices selected - showing only user-defined variables
+                    </p>
+                  )}
                   <div className="space-y-3 mt-2">
-                    {selectedFunction.arguments.map((arg) => (
-                      <div key={arg.name} className="flex items-center space-x-3">
-                        <span className="w-32 text-sm font-medium text-gray-700">
-                          {arg.name} ({arg.dataType || arg.type}):
-                        </span>
-                        <Select 
-                          value={currentStep.argumentMappings[arg.name] || ''} 
-                          onValueChange={(value) => 
-                            setCurrentStep({
-                              ...currentStep, 
-                              argumentMappings: {...currentStep.argumentMappings, [arg.name]: value}
-                            })
-                          }
-                        >
-                          <SelectTrigger className="flex-1">
-                            <SelectValue placeholder="Select variable" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-white">
-                            {userVariables.filter(v => v.type === (arg.dataType || arg.type)).map((variable) => (
-                              <SelectItem key={variable.name} value={variable.name}>
-                                {variable.name} ({variable.type})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    ))}
+                    {selectedFunction.arguments.map((arg) => {
+                      const availableVariables = getAvailableVariables().filter(v => v.type === (arg.dataType || arg.type));
+                      
+                      return (
+                        <div key={arg.name} className="flex items-center space-x-3">
+                          <span className="w-32 text-sm font-medium text-gray-700">
+                            {arg.name} ({arg.dataType || arg.type}):
+                          </span>
+                          <Select 
+                            value={currentStep.argumentMappings[arg.name] || ''} 
+                            onValueChange={(value) => 
+                              setCurrentStep({
+                                ...currentStep, 
+                                argumentMappings: {...currentStep.argumentMappings, [arg.name]: value}
+                              })
+                            }
+                          >
+                            <SelectTrigger className="flex-1">
+                              <SelectValue placeholder="Select variable" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white">
+                              {availableVariables.map((variable) => (
+                                <SelectItem key={variable.name} value={variable.name}>
+                                  {variable.name} ({variable.type})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -637,6 +657,11 @@ const CreatePipeline = () => {
               {selectedFunction && selectedFunction.returnEnabled && (
                 <div>
                   <Label htmlFor="returnMapping">Map Return to Variable</Label>
+                  {selectedDevices.length > 1 && (
+                    <p className="text-sm text-amber-600 mb-2">
+                      Multiple devices selected - showing only user-defined variables
+                    </p>
+                  )}
                   <Select 
                     value={currentStep.returnMapping} 
                     onValueChange={(value) => setCurrentStep({...currentStep, returnMapping: value})}
@@ -645,7 +670,7 @@ const CreatePipeline = () => {
                       <SelectValue placeholder="Select variable for return value" />
                     </SelectTrigger>
                     <SelectContent className="bg-white">
-                      {userVariables.filter(v => v.type === selectedFunction.returnType).map((variable) => (
+                      {getAvailableVariables().filter(v => v.type === selectedFunction.returnType).map((variable) => (
                         <SelectItem key={variable.name} value={variable.name}>
                           {variable.name} ({variable.type})
                         </SelectItem>
