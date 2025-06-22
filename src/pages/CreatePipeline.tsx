@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, ArrowLeft, Settings, Trash2, Save, Play, Edit } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Plus, ArrowLeft, Settings, Trash2, Save, Play, Edit, Lock } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { storage } from "@/utils/storage";
@@ -45,12 +45,18 @@ const CreatePipeline = () => {
   const [pipelineDescription, setPipelineDescription] = useState('');
   const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
   const [steps, setSteps] = useState<PipelineStep[]>([]);
-  const [pipelineVariables, setPipelineVariables] = useState<PipelineVariable[]>([
+  
+  // Separate system and user defined variables
+  const [systemVariables] = useState<PipelineVariable[]>([
     { name: 'currentShift', value: 'SHIFT_A', type: 'String', description: 'Current production shift' },
     { name: 'machineId', value: 'LINE_01_MACHINE_03', type: 'String', description: 'Unique machine identifier' },
     { name: 'qualityThreshold', value: '95.5', type: 'Number', description: 'Quality threshold percentage' },
-    { name: 'conversionFactor', value: '1.2', type: 'Number', description: 'Data conversion multiplier' }
+    { name: 'conversionFactor', value: '1.2', type: 'Number', description: 'Data conversion multiplier' },
+    { name: 'systemTimestamp', value: '2024-01-01T00:00:00Z', type: 'String', description: 'System generated timestamp' },
+    { name: 'operatorId', value: 'OP001', type: 'String', description: 'Current operator identifier' }
   ]);
+  
+  const [userVariables, setUserVariables] = useState<PipelineVariable[]>([]);
   const [isStepDialogOpen, setIsStepDialogOpen] = useState(false);
   const [isVariableDialogOpen, setIsVariableDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -79,11 +85,22 @@ const CreatePipeline = () => {
         setPipelineDescription(pipelineToEdit.description);
         setSelectedDevices(pipelineToEdit.devices || []);
         setSteps(pipelineToEdit.steps || []);
-        setPipelineVariables(pipelineToEdit.variables || pipelineVariables);
+        setPipelineVariables(pipelineToEdit.variables || []);
         setIsEditing(true);
+
+        // Separate system and user defined variables when editing
+        const storedSystemVariables = pipelineToEdit.variables?.filter(v => 
+          systemVariables.find(sysVar => sysVar.name === v.name)
+        ) || systemVariables;
+
+        const storedUserVariables = pipelineToEdit.variables?.filter(v => 
+          !systemVariables.find(sysVar => sysVar.name === v.name)
+        ) || [];
+
+        setUserVariables(storedUserVariables);
       }
     }
-  }, [editId]);
+  }, [editId, systemVariables]);
 
   const [currentStep, setCurrentStep] = useState<Omit<PipelineStep, 'id'>>({
     functionName: '',
@@ -101,14 +118,14 @@ const CreatePipeline = () => {
 
   const handleAddVariable = () => {
     if (newVariable.name && newVariable.value) {
-      setPipelineVariables([...pipelineVariables, { ...newVariable }]);
+      setUserVariables([...userVariables, { ...newVariable }]);
       setNewVariable({ name: '', value: '', type: 'String', description: '' });
       setIsVariableDialogOpen(false);
     }
   };
 
   const handleDeleteVariable = (index: number) => {
-    setPipelineVariables(pipelineVariables.filter((_, i) => i !== index));
+    setUserVariables(userVariables.filter((_, i) => i !== index));
   };
 
   const handleAddStep = () => {
@@ -147,12 +164,13 @@ const CreatePipeline = () => {
     }
 
     const pipelines = storage.getPipelines();
+    const allVariables = [...systemVariables, ...userVariables];
     const pipelineData = {
       id: isEditing ? parseInt(editId!) : Date.now(),
       name: pipelineName,
       description: pipelineDescription,
       devices: selectedDevices,
-      variables: pipelineVariables,
+      variables: allVariables,
       steps: steps,
       status: 'active',
       lastRun: new Date().toISOString().split('T')[0]
@@ -189,7 +207,7 @@ const CreatePipeline = () => {
       name: pipelineName,
       description: pipelineDescription,
       devices: selectedDevices,
-      variables: pipelineVariables,
+      variables: [...systemVariables, ...userVariables],
       steps: steps
     });
 
@@ -288,11 +306,52 @@ const CreatePipeline = () => {
           </CardContent>
         </Card>
 
-        {/* Pipeline Variables */}
+        {/* System Defined Variables */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>Pipeline Variables</CardTitle>
+              <div className="flex items-center space-x-2">
+                <CardTitle>System Defined Variables</CardTitle>
+                <Lock className="h-4 w-4 text-gray-500" />
+              </div>
+              <span className="text-sm text-gray-500">Read Only</span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className={systemVariables.length > 5 ? "h-80" : ""}>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Value</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Description</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {systemVariables.map((variable, index) => (
+                    <TableRow key={index}>
+                      <TableCell className="font-medium">{variable.name}</TableCell>
+                      <TableCell className="text-gray-600">{variable.value}</TableCell>
+                      <TableCell>
+                        <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
+                          {variable.type}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-gray-600">{variable.description}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+
+        {/* User Defined Variables */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>User Defined Variables</CardTitle>
               <Dialog open={isVariableDialogOpen} onOpenChange={setIsVariableDialogOpen}>
                 <DialogTrigger asChild>
                   <Button className="flex items-center space-x-2">
@@ -304,46 +363,55 @@ const CreatePipeline = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Value</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pipelineVariables.map((variable, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="font-medium">{variable.name}</TableCell>
-                    <TableCell className="text-gray-600">{variable.value}</TableCell>
-                    <TableCell>
-                      <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs">
-                        {variable.type}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-gray-600">{variable.description}</TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button size="sm" variant="outline">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => handleDeleteVariable(index)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            {userVariables.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <Settings className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                <p>No user defined variables yet. Add your first variable to get started.</p>
+              </div>
+            ) : (
+              <ScrollArea className={userVariables.length > 5 ? "h-80" : ""}>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Value</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {userVariables.map((variable, index) => (
+                      <TableRow key={index}>
+                        <TableCell className="font-medium">{variable.name}</TableCell>
+                        <TableCell className="text-gray-600">{variable.value}</TableCell>
+                        <TableCell>
+                          <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs">
+                            {variable.type}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-gray-600">{variable.description}</TableCell>
+                        <TableCell>
+                          <div className="flex space-x-2">
+                            <Button size="sm" variant="outline">
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => handleDeleteVariable(index)}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            )}
           </CardContent>
         </Card>
 
@@ -529,7 +597,7 @@ const CreatePipeline = () => {
                             <SelectValue placeholder="Select variable" />
                           </SelectTrigger>
                           <SelectContent className="bg-white">
-                            {pipelineVariables.filter(v => v.type === (arg.dataType || arg.type)).map((variable) => (
+                            {userVariables.filter(v => v.type === (arg.dataType || arg.type)).map((variable) => (
                               <SelectItem key={variable.name} value={variable.name}>
                                 {variable.name} ({variable.type})
                               </SelectItem>
@@ -553,7 +621,7 @@ const CreatePipeline = () => {
                       <SelectValue placeholder="Select variable for return value" />
                     </SelectTrigger>
                     <SelectContent className="bg-white">
-                      {pipelineVariables.filter(v => v.type === selectedFunction.returnType).map((variable) => (
+                      {userVariables.filter(v => v.type === selectedFunction.returnType).map((variable) => (
                         <SelectItem key={variable.name} value={variable.name}>
                           {variable.name} ({variable.type})
                         </SelectItem>
