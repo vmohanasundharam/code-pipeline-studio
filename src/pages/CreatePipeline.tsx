@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, ArrowLeft, Settings, Trash2, Save, Play } from "lucide-react";
+import { Plus, ArrowLeft, Settings, Trash2, Save, Play, Edit } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { storage } from "@/utils/storage";
@@ -27,9 +27,11 @@ interface MockFunction {
   returnType?: string;
 }
 
-interface MockVariable {
+interface PipelineVariable {
   name: string;
+  value: string;
   type: string;
+  description: string;
 }
 
 const CreatePipeline = () => {
@@ -40,19 +42,33 @@ const CreatePipeline = () => {
   
   const [pipelineName, setPipelineName] = useState('');
   const [pipelineDescription, setPipelineDescription] = useState('');
+  const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
   const [steps, setSteps] = useState<PipelineStep[]>([]);
+  const [pipelineVariables, setPipelineVariables] = useState<PipelineVariable[]>([
+    { name: 'currentShift', value: 'SHIFT_A', type: 'String', description: 'Current production shift' },
+    { name: 'machineId', value: 'LINE_01_MACHINE_03', type: 'String', description: 'Unique machine identifier' },
+    { name: 'qualityThreshold', value: '95.5', type: 'Number', description: 'Quality threshold percentage' },
+    { name: 'conversionFactor', value: '1.2', type: 'Number', description: 'Data conversion multiplier' }
+  ]);
   const [isStepDialogOpen, setIsStepDialogOpen] = useState(false);
+  const [isVariableDialogOpen, setIsVariableDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
-  // Load JS functions from storage
+  const devices = storage.getDevices();
   const [mockFunctions, setMockFunctions] = useState<MockFunction[]>([]);
+
+  const [newVariable, setNewVariable] = useState({
+    name: '',
+    value: '',
+    type: 'String',
+    description: ''
+  });
 
   useEffect(() => {
     const jsFunctions = storage.getJSFunctions();
     setMockFunctions(jsFunctions);
   }, []);
 
-  // Load pipeline for editing
   useEffect(() => {
     if (editId) {
       const pipelines = storage.getPipelines();
@@ -60,24 +76,39 @@ const CreatePipeline = () => {
       if (pipelineToEdit) {
         setPipelineName(pipelineToEdit.name);
         setPipelineDescription(pipelineToEdit.description);
+        setSelectedDevices(pipelineToEdit.devices || []);
         setSteps(pipelineToEdit.steps || []);
+        setPipelineVariables(pipelineToEdit.variables || pipelineVariables);
         setIsEditing(true);
       }
     }
   }, [editId]);
-
-  const mockVariables: MockVariable[] = [
-    { name: 'currentShift', type: 'String' },
-    { name: 'machineId', type: 'String' },
-    { name: 'qualityThreshold', type: 'Number' },
-    { name: 'conversionFactor', type: 'Number' }
-  ];
 
   const [currentStep, setCurrentStep] = useState<Omit<PipelineStep, 'id'>>({
     functionName: '',
     argumentMappings: {},
     returnMapping: ''
   });
+
+  const handleDeviceToggle = (device: string) => {
+    setSelectedDevices(prev => 
+      prev.includes(device) 
+        ? prev.filter(d => d !== device)
+        : [...prev, device]
+    );
+  };
+
+  const handleAddVariable = () => {
+    if (newVariable.name && newVariable.value) {
+      setPipelineVariables([...pipelineVariables, { ...newVariable }]);
+      setNewVariable({ name: '', value: '', type: 'String', description: '' });
+      setIsVariableDialogOpen(false);
+    }
+  };
+
+  const handleDeleteVariable = (index: number) => {
+    setPipelineVariables(pipelineVariables.filter((_, i) => i !== index));
+  };
 
   const handleAddStep = () => {
     if (currentStep.functionName) {
@@ -119,6 +150,8 @@ const CreatePipeline = () => {
       id: isEditing ? parseInt(editId!) : Date.now(),
       name: pipelineName,
       description: pipelineDescription,
+      devices: selectedDevices,
+      variables: pipelineVariables,
       steps: steps,
       status: 'active',
       lastRun: new Date().toISOString().split('T')[0]
@@ -154,6 +187,8 @@ const CreatePipeline = () => {
     console.log('Testing pipeline:', {
       name: pipelineName,
       description: pipelineDescription,
+      devices: selectedDevices,
+      variables: pipelineVariables,
       steps: steps
     });
 
@@ -232,6 +267,63 @@ const CreatePipeline = () => {
                 rows={3}
               />
             </div>
+            <div>
+              <Label>Select Devices</Label>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                {devices.map((device) => (
+                  <div key={device} className="flex items-center space-x-2 p-2 border rounded">
+                    <input
+                      type="checkbox"
+                      id={device}
+                      checked={selectedDevices.includes(device)}
+                      onChange={() => handleDeviceToggle(device)}
+                      className="h-4 w-4"
+                    />
+                    <label htmlFor={device} className="text-sm">{device}</label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Pipeline Variables */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Pipeline Variables</CardTitle>
+              <Dialog open={isVariableDialogOpen} onOpenChange={setIsVariableDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="flex items-center space-x-2">
+                    <Plus className="h-4 w-4" />
+                    <span>Add Variable</span>
+                  </Button>
+                </DialogTrigger>
+              </Dialog>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {pipelineVariables.map((variable, index) => (
+                <div key={index} className="bg-gray-50 p-3 rounded-lg border flex items-center justify-between">
+                  <div>
+                    <div className="font-medium text-gray-900">{variable.name}</div>
+                    <div className="text-sm text-gray-600">{variable.description}</div>
+                    <div className="text-sm text-gray-500">
+                      Value: {variable.value} | Type: {variable.type}
+                    </div>
+                  </div>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => handleDeleteVariable(index)}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
 
@@ -306,6 +398,66 @@ const CreatePipeline = () => {
           </CardContent>
         </Card>
 
+        {/* Add Variable Dialog */}
+        <Dialog open={isVariableDialogOpen} onOpenChange={setIsVariableDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Pipeline Variable</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="variableName">Name</Label>
+                <Input
+                  id="variableName"
+                  value={newVariable.name}
+                  onChange={(e) => setNewVariable({...newVariable, name: e.target.value})}
+                  placeholder="Variable name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="variableValue">Value</Label>
+                <Input
+                  id="variableValue"
+                  value={newVariable.value}
+                  onChange={(e) => setNewVariable({...newVariable, value: e.target.value})}
+                  placeholder="Variable value"
+                />
+              </div>
+              <div>
+                <Label htmlFor="variableType">Type</Label>
+                <Select value={newVariable.type} onValueChange={(value) => setNewVariable({...newVariable, type: value})}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                    <SelectItem value="String">String</SelectItem>
+                    <SelectItem value="Number">Number</SelectItem>
+                    <SelectItem value="Map">Map</SelectItem>
+                    <SelectItem value="List">List</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="variableDescription">Description</Label>
+                <Input
+                  id="variableDescription"
+                  value={newVariable.description}
+                  onChange={(e) => setNewVariable({...newVariable, description: e.target.value})}
+                  placeholder="Variable description"
+                />
+              </div>
+              <div className="flex space-x-2">
+                <Button variant="outline" onClick={() => setIsVariableDialogOpen(false)} className="flex-1">
+                  Cancel
+                </Button>
+                <Button onClick={handleAddVariable} className="flex-1">
+                  Add Variable
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* Add Step Dialog */}
         <Dialog open={isStepDialogOpen} onOpenChange={setIsStepDialogOpen}>
           <DialogContent className="max-w-2xl">
@@ -357,7 +509,7 @@ const CreatePipeline = () => {
                             <SelectValue placeholder="Select variable" />
                           </SelectTrigger>
                           <SelectContent className="bg-white">
-                            {mockVariables.filter(v => v.type === (arg.dataType || arg.type)).map((variable) => (
+                            {pipelineVariables.filter(v => v.type === (arg.dataType || arg.type)).map((variable) => (
                               <SelectItem key={variable.name} value={variable.name}>
                                 {variable.name} ({variable.type})
                               </SelectItem>
@@ -381,7 +533,7 @@ const CreatePipeline = () => {
                       <SelectValue placeholder="Select variable for return value" />
                     </SelectTrigger>
                     <SelectContent className="bg-white">
-                      {mockVariables.filter(v => v.type === selectedFunction.returnType).map((variable) => (
+                      {pipelineVariables.filter(v => v.type === selectedFunction.returnType).map((variable) => (
                         <SelectItem key={variable.name} value={variable.name}>
                           {variable.name} ({variable.type})
                         </SelectItem>

@@ -9,6 +9,18 @@ export const storage = {
     localStorage.setItem('pipelines', JSON.stringify(pipelines));
   },
   
+  getDevices: () => {
+    return [
+      'Machine_01',
+      'Machine_02', 
+      'Machine_03',
+      'Sensor_A',
+      'Sensor_B',
+      'Controller_X',
+      'Controller_Y'
+    ];
+  },
+  
   getJSFunctions: () => {
     const stored = localStorage.getItem('jsFunctions');
     return stored ? JSON.parse(stored) : [
