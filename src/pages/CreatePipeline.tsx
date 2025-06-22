@@ -85,7 +85,6 @@ const CreatePipeline = () => {
         setPipelineDescription(pipelineToEdit.description);
         setSelectedDevices(pipelineToEdit.devices || []);
         setSteps(pipelineToEdit.steps || []);
-        setPipelineVariables(pipelineToEdit.variables || []);
         setIsEditing(true);
 
         // Separate system and user defined variables when editing
