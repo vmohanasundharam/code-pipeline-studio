@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, ArrowLeft, Settings, Trash2, Save, Play, Edit, Lock } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -33,6 +35,7 @@ interface PipelineVariable {
   value: string;
   type: string;
   description: string;
+  tagName?: string;
 }
 
 const CreatePipeline = () => {
@@ -48,12 +51,12 @@ const CreatePipeline = () => {
   
   // Separate system and user defined variables
   const [systemVariables] = useState<PipelineVariable[]>([
-    { name: 'currentShift', value: 'SHIFT_A', type: 'String', description: 'Current production shift' },
-    { name: 'machineId', value: 'LINE_01_MACHINE_03', type: 'String', description: 'Unique machine identifier' },
-    { name: 'qualityThreshold', value: '95.5', type: 'Number', description: 'Quality threshold percentage' },
-    { name: 'conversionFactor', value: '1.2', type: 'Number', description: 'Data conversion multiplier' },
-    { name: 'systemTimestamp', value: '2024-01-01T00:00:00Z', type: 'String', description: 'System generated timestamp' },
-    { name: 'operatorId', value: 'OP001', type: 'String', description: 'Current operator identifier' }
+    { name: 'currentShift', value: 'SHIFT_A', type: 'String', description: 'Current production shift', tagName: 'SHIFT_TAG' },
+    { name: 'machineId', value: 'LINE_01_MACHINE_03', type: 'String', description: 'Unique machine identifier', tagName: 'MACHINE_ID_TAG' },
+    { name: 'qualityThreshold', value: '95.5', type: 'Number', description: 'Quality threshold percentage', tagName: 'QUALITY_TAG' },
+    { name: 'conversionFactor', value: '1.2', type: 'Number', description: 'Data conversion multiplier', tagName: 'CONV_FACTOR_TAG' },
+    { name: 'systemTimestamp', value: '2024-01-01T00:00:00Z', type: 'String', description: 'System generated timestamp', tagName: 'TIMESTAMP_TAG' },
+    { name: 'operatorId', value: 'OP001', type: 'String', description: 'Current operator identifier', tagName: 'OPERATOR_TAG' }
   ]);
   
   const [userVariables, setUserVariables] = useState<PipelineVariable[]>([]);
@@ -317,32 +320,54 @@ const CreatePipeline = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <ScrollArea className={systemVariables.length > 5 ? "h-80" : ""}>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Value</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Description</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {systemVariables.map((variable, index) => (
-                    <TableRow key={index}>
-                      <TableCell className="font-medium">{variable.name}</TableCell>
-                      <TableCell className="text-gray-600">{variable.value}</TableCell>
-                      <TableCell>
-                        <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
-                          {variable.type}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-gray-600">{variable.description}</TableCell>
-                    </TableRow>
+            {selectedDevices.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <Settings className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                <p>Please select devices first to view system variables.</p>
+              </div>
+            ) : (
+              <Tabs defaultValue={selectedDevices[0]} className="w-full">
+                <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${selectedDevices.length}, minmax(0, 1fr))` }}>
+                  {selectedDevices.map((device) => (
+                    <TabsTrigger key={device} value={device}>
+                      {device}
+                    </TabsTrigger>
                   ))}
-                </TableBody>
-              </Table>
-            </ScrollArea>
+                </TabsList>
+                {selectedDevices.map((device) => (
+                  <TabsContent key={device} value={device}>
+                    <ScrollArea className={systemVariables.length > 5 ? "h-80" : ""}>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Tag Name</TableHead>
+                            <TableHead>Value</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Description</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {systemVariables.map((variable, index) => (
+                            <TableRow key={index}>
+                              <TableCell className="font-medium">{variable.name}</TableCell>
+                              <TableCell className="text-gray-600">{variable.tagName}</TableCell>
+                              <TableCell className="text-gray-600">{variable.value}</TableCell>
+                              <TableCell>
+                                <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
+                                  {variable.type}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-gray-600">{variable.description}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                  </TabsContent>
+                ))}
+              </Tabs>
+            )}
           </CardContent>
         </Card>
 
